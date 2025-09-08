@@ -1,0 +1,280 @@
+from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy import func
+from fastapi import HTTPException
+from typing import List, Dict, Tuple
+from datetime import datetime, timedelta, timezone
+import models
+import schemas
+from utils.timezone_utils import TimezoneUtils
+
+class AgendamentoService:
+    
+    # Configurações do sistema
+    HORARIOS_PROFISSIONAL = {
+        1: [("08:00", "12:00"), ("13:00", "18:00")],  # segunda
+        2: [("08:00", "12:00"), ("13:00", "18:00")],  # terça
+        3: [("08:00", "12:00"), ("13:00", "18:00")],  # quarta
+        4: [("08:00", "12:00"), ("13:00", "18:00")],  # quinta
+        5: [("08:00", "12:00"), ("13:00", "17:00")],  # sexta
+        6: [("08:00", "12:00")],                      # sábado
+        7: []                                         # domingo
+    }
+    
+    DURACAO_SLOT_MIN = 60
+    TZ_OFFSET = "-03:00"
+    
+    @staticmethod
+    def create_agendamento(db: Session, agendamento: schemas.AgendamentoCreate) -> models.Agendamento:
+        # Verifica se cliente existe
+        cliente = db.query(models.Cliente).filter(models.Cliente.id == agendamento.cliente_id).first()
+        if not cliente:
+            raise HTTPException(status_code=400, detail="Cliente not found")
+        
+        # Valida se data_fim é posterior a data_inicio
+        if agendamento.data_fim and agendamento.data_fim <= agendamento.data_inicio:
+            raise HTTPException(status_code=400, detail="Data fim must be after data inicio")
+        
+        try:
+            db_agendamento = models.Agendamento(**agendamento.model_dump())
+            db.add(db_agendamento)
+            db.commit()
+            db.refresh(db_agendamento)
+            return db_agendamento
+        except IntegrityError:
+            db.rollback()
+            raise HTTPException(status_code=400, detail="Evento ID already exists")
+    
+    @staticmethod
+    def get_agendamentos(db: Session, skip: int = 0, limit: int = 100) -> List[models.Agendamento]:
+        return db.query(models.Agendamento).offset(skip).limit(limit).all()
+    
+    @staticmethod
+    def get_agendamento_by_id(db: Session, agendamento_id: int) -> models.Agendamento:
+        agendamento = db.query(models.Agendamento).filter(models.Agendamento.id == agendamento_id).first()
+        if not agendamento:
+            raise HTTPException(status_code=404, detail="Agendamento not found")
+        return agendamento
+    
+    @staticmethod
+    def get_agendamentos_by_data(db: Session, data: str) -> List[models.Agendamento]:
+        try:
+            data_obj = datetime.strptime(data, "%Y-%m-%d").date()
+            return db.query(models.Agendamento).filter(
+                func.date(models.Agendamento.data_inicio) == data_obj
+            ).all()
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Data deve estar no formato yyyy-mm-dd")
+    
+    @staticmethod
+    def get_agendamentos_by_cliente(db: Session, cliente_id: int) -> List[models.Agendamento]:
+        # Verifica se cliente existe
+        cliente = db.query(models.Cliente).filter(models.Cliente.id == cliente_id).first()
+        if not cliente:
+            raise HTTPException(status_code=404, detail="Cliente not found")
+        
+        return db.query(models.Agendamento).filter(
+            models.Agendamento.cliente_id == cliente_id
+        ).all()
+    
+    @staticmethod
+    def update_agendamento(db: Session, agendamento_id: int, agendamento: schemas.AgendamentoUpdate) -> models.Agendamento:
+        db_agendamento = AgendamentoService.get_agendamento_by_id(db, agendamento_id)
+        
+        update_data = agendamento.model_dump(exclude_unset=True)
+        
+        # Valida cliente_id se estiver sendo alterado
+        if "cliente_id" in update_data:
+            cliente = db.query(models.Cliente).filter(models.Cliente.id == update_data["cliente_id"]).first()
+            if not cliente:
+                raise HTTPException(status_code=400, detail="Cliente not found")
+        
+        # Valida datas se estiverem sendo alteradas
+        data_inicio = update_data.get("data_inicio", db_agendamento.data_inicio)
+        data_fim = update_data.get("data_fim", db_agendamento.data_fim)
+        if data_fim and data_fim <= data_inicio:
+            raise HTTPException(status_code=400, detail="Data fim must be after data inicio")
+        
+        # Aplica as alterações
+        for key, value in update_data.items():
+            setattr(db_agendamento, key, value)
+        
+        try:
+            db.commit()
+            db.refresh(db_agendamento)
+            return db_agendamento
+        except IntegrityError:
+            db.rollback()
+            raise HTTPException(status_code=400, detail="Evento ID already exists")
+    
+    @staticmethod
+    def cancel_agendamento(db: Session, agendamento_id: int) -> models.Agendamento:
+        db_agendamento = AgendamentoService.get_agendamento_by_id(db, agendamento_id)
+        
+        if db_agendamento.status == "cancelled":
+            raise HTTPException(status_code=400, detail="Agendamento already cancelled")
+        
+        db_agendamento.status = "cancelled"
+        db_agendamento.cancelled_at = datetime.utcnow()
+        db.commit()
+        db.refresh(db_agendamento)
+        return db_agendamento
+    
+    @staticmethod
+    def delete_agendamento(db: Session, agendamento_id: int):
+        db_agendamento = AgendamentoService.get_agendamento_by_id(db, agendamento_id)
+        db.delete(db_agendamento)
+        db.commit()
+    
+    # === MÉTODOS PARA SLOTS LIVRES ===
+    
+    @staticmethod
+    def _parse_time(time_str: str) -> Tuple[int, int]:
+        """Converte 'HH:MM' para (horas, minutos)"""
+        h, m = map(int, time_str.split(':'))
+        return h, m
+    
+    @staticmethod
+    def _create_datetime_with_tz(date_str: str, time_str: str) -> datetime:
+        """Cria datetime com timezone padrão do sistema"""
+        h, m = AgendamentoService._parse_time(time_str)
+        date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
+        return TimezoneUtils.timezone_utils.create_datetime(
+            date_obj.year, date_obj.month, date_obj.day, h, m
+        )
+    
+    @staticmethod
+    def _slots_overlap(slot1: Dict, slot2: Dict) -> bool:
+        """Verifica se dois slots se sobrepõem"""
+        return slot1['inicio'] < slot2['fim'] and slot1['fim'] > slot2['inicio']
+    
+    @staticmethod
+    def _gerar_slots_do_dia(data: str, horarios: Dict, duracao_min: int) -> List[Dict]:
+        """Gera todos os slots possíveis do dia baseado nos horários de funcionamento"""
+        try:
+            data_obj = datetime.strptime(data, "%Y-%m-%d").date()
+        except ValueError:
+            return []
+        
+        # Dia da semana (1=segunda, 7=domingo)
+        weekday = data_obj.weekday() + 1
+        
+        janelas = horarios.get(weekday, [])
+        if not janelas:
+            return []
+        
+        slots = []
+        duracao_delta = timedelta(minutes=duracao_min)
+        
+        for inicio_str, fim_str in janelas:
+            inicio_dt = AgendamentoService._create_datetime_with_tz(data, inicio_str)
+            fim_dt = AgendamentoService._create_datetime_with_tz(data, fim_str)
+            
+            slot_inicio = inicio_dt
+            while slot_inicio + duracao_delta <= fim_dt:
+                slot_fim = slot_inicio + duracao_delta
+                slots.append({
+                    'inicio': slot_inicio,
+                    'fim': slot_fim
+                })
+                slot_inicio = slot_fim
+        
+        return slots
+    
+    @staticmethod
+    def _filtrar_slots_ocupados(slots_todos: List[Dict], agendamentos_ocupados: List[Dict]) -> List[Dict]:
+        """Remove slots que se sobrepõem com agendamentos existentes"""
+        slots_livres = []
+        
+        for slot in slots_todos:
+            ocupado = False
+            for agendamento in agendamentos_ocupados:
+                if AgendamentoService._slots_overlap(slot, agendamento):
+                    ocupado = True
+                    break
+            
+            if not ocupado:
+                slots_livres.append(slot)
+        
+        return slots_livres
+    
+    @staticmethod
+    def _filtrar_slots_passados(slots: List[Dict]) -> List[Dict]:
+        """Remove slots que já passaram"""
+        agora = TimezoneUtils.now()  # Usa timezone padrão
+        return [slot for slot in slots if slot['inicio'] >= agora]
+    
+    @staticmethod
+    def get_slots_livres(db: Session, data: str) -> Dict:
+        """
+        Retorna slots livres para uma data específica
+        """
+        try:
+            # Valida formato da data
+            data_obj = datetime.strptime(data, "%Y-%m-%d").date()
+            hoje = TimezoneUtils.now().date()
+            
+            # Não permite datas passadas
+            if data_obj < hoje:
+                return {
+                    "data": data,
+                    "slots_disponiveis": [],
+                    "total_slots": {"gerados": 0, "livres": 0}
+                }
+            
+            # Gera todos os slots possíveis do dia
+            slots_todos = AgendamentoService._gerar_slots_do_dia(
+                data, 
+                AgendamentoService.HORARIOS_PROFISSIONAL, 
+                AgendamentoService.DURACAO_SLOT_MIN
+            )
+            
+            # Busca agendamentos ocupados do dia usando timezone padrão
+            inicio_dia = TimezoneUtils.start_of_day(data)
+            fim_dia = TimezoneUtils.end_of_day(data)
+            
+            agendamentos_db = db.query(models.Agendamento).filter(
+                models.Agendamento.data_inicio >= inicio_dia,
+                models.Agendamento.data_inicio <= fim_dia
+            ).all()
+            
+            # Converte agendamentos para formato de slots ocupados
+            agendamentos_ocupados = []
+            for ag in agendamentos_db:
+                if ag.data_inicio and ag.data_fim:
+                    # Garante que as datas estão no timezone padrão
+                    inicio = TimezoneUtils.to_brasilia(ag.data_inicio)
+                    fim = TimezoneUtils.to_brasilia(ag.data_fim)
+                    agendamentos_ocupados.append({
+                        'inicio': inicio,
+                        'fim': fim
+                    })
+            
+            # Filtra slots ocupados
+            slots_livres = AgendamentoService._filtrar_slots_ocupados(slots_todos, agendamentos_ocupados)
+            
+            # Remove slots que já passaram (se for hoje)
+            if data_obj == hoje:
+                slots_livres = AgendamentoService._filtrar_slots_passados(slots_livres)
+            
+            # Formata resposta usando timezone padrão
+            slots_formatados = []
+            for slot in slots_livres:
+                slots_formatados.append({
+                    "inicio": slot['inicio'].isoformat(),
+                    "fim": slot['fim'].isoformat()
+                })
+            
+            return {
+                "data": data,
+                "slots_disponiveis": slots_formatados,
+                "total_slots": {
+                    "gerados": len(slots_todos),
+                    "livres": len(slots_livres)
+                }
+            }
+            
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Data deve estar no formato YYYY-MM-DD")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")

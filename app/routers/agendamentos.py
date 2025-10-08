@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 from typing import List
-import schemas
-from database import get_db
-from services.agendamento_service import AgendamentoService
+from app import schemas
+from app.database import get_db
+from app.services.agendamento_service import AgendamentoService
 
 router = APIRouter()
 

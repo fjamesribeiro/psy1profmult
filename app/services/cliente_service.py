@@ -2,8 +2,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
 from typing import List
-import models
-import schemas
+from app import models
+from app import schemas
 
 class ClienteService:
     

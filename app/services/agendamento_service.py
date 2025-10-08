@@ -4,9 +4,8 @@ from sqlalchemy import func
 from fastapi import HTTPException
 from typing import List, Dict, Tuple
 from datetime import datetime, timedelta, timezone
-import models
-import schemas
-from utils.timezone_utils import TimezoneUtils
+from app import models, schemas
+from app.utils.timezone_utils import TimezoneUtils
 
 class AgendamentoService:
     
@@ -139,7 +138,7 @@ class AgendamentoService:
         """Cria datetime com timezone padrão do sistema"""
         h, m = AgendamentoService._parse_time(time_str)
         date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
-        return TimezoneUtils.timezone_utils.create_datetime(
+        return TimezoneUtils.create_datetime(
             date_obj.year, date_obj.month, date_obj.day, h, m
         )
     

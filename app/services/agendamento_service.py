@@ -277,3 +277,66 @@ class AgendamentoService:
             raise HTTPException(status_code=400, detail="Data deve estar no formato YYYY-MM-DD")
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
+
+    @staticmethod
+    def is_horario_livre(db: Session, data: str) -> bool:
+        """
+        Verifica se um horário específico está disponível para agendamento.
+
+        Args:
+            db: A sessão do banco de dados.
+            data: A data e hora no formato ISO 8601 (ex: "2025-10-10T15:00:00-03:00").
+
+        Returns:
+            True se o horário estiver livre, False caso contrário.
+
+        """
+        try:
+            # 1. Parse do input e cálculo do slot de tempo
+            horario_inicio = TimezoneUtils.ajusta_to_brasilia(data)
+            duracao = timedelta(minutes=AgendamentoService.DURACAO_SLOT_MIN)
+            horario_fim = horario_inicio + duracao
+
+            # 2. Valida se o horário solicitado não está no passado
+            if horario_inicio < TimezoneUtils.now():
+                return False
+
+            # 3. Valida se o horário está dentro do expediente
+            dia_semana = horario_inicio.weekday() + 1  # 1=Segunda, 7=Domingo
+            janelas_expediente = AgendamentoService.HORARIOS_PROFISSIONAL.get(dia_semana, [])
+
+            if not janelas_expediente:
+                return False  # Dia não trabalhado
+
+            dentro_do_expediente = False
+            data_str = horario_inicio.strftime("%Y-%m-%d")
+            for inicio_exp_str, fim_exp_str in janelas_expediente:
+                inicio_exp = AgendamentoService._create_datetime_with_tz(data_str, inicio_exp_str)
+                fim_exp = AgendamentoService._create_datetime_with_tz(data_str, fim_exp_str)
+
+                # O slot completo (início e fim) deve estar contido na janela de expediente
+                if inicio_exp <= horario_inicio and horario_fim <= fim_exp:
+                    dentro_do_expediente = True
+                    break
+
+            if not dentro_do_expediente:
+                return False
+
+            # 4. Valida se não existe um agendamento conflitante no banco de dados
+            # Um conflito existe se um agendamento começa antes do nosso fim E termina depois do nosso início.
+            conflito = db.query(models.Agendamento).filter(
+                models.Agendamento.status != 'cancelled',
+                models.Agendamento.data_inicio < horario_fim,
+                models.Agendamento.data_fim > horario_inicio
+            ).first()
+
+            if conflito:
+                return False  # Horário já ocupado
+
+            # 5. Se passou por todas as validações, o horário está livre
+            return True
+
+        except (ValueError, TypeError):
+            raise HTTPException(status_code=400, detail="Data deve estar no formato YYYY-MM-DD")
+        except Exception:
+            raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")

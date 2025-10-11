@@ -42,3 +42,7 @@ def cancel_agendamento(agendamento_id: int, db: Session = Depends(get_db)):
 @router.delete("/{agendamento_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_agendamento(agendamento_id: int, db: Session = Depends(get_db)):
     AgendamentoService.delete_agendamento(db, agendamento_id)
+
+@router.get("/horario-livre/{data}")
+def is_horario_livre(data: str, db: Session = Depends(get_db)):
+    return AgendamentoService.is_horario_livre(db, data)

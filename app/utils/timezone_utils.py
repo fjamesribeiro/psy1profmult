@@ -1,4 +1,5 @@
 from datetime import datetime, timezone, timedelta
+import pytz
 
 class TimezoneUtils:
     # Timezone padrão do sistema (Brasília)
@@ -16,7 +17,16 @@ class TimezoneUtils:
             # Se não tem timezone, assume que é UTC
             dt = dt.replace(tzinfo=timezone.utc)
         return dt.astimezone(cls.BRASILIA_TZ)
-    
+
+    @classmethod
+    def ajusta_to_brasilia(cls, dt: str) -> datetime:
+        """Recebe a data e ajusta ao datetime para timezone de Brasília"""
+        date_format = "%Y-%m-%d %H"
+        naive_datetime = datetime.strptime(dt, date_format)
+        brasilia_tz = pytz.timezone('America/Sao_Paulo')
+        datetime_brasilia = brasilia_tz.localize(naive_datetime)
+        return datetime_brasilia
+
     @classmethod
     def to_utc(cls, dt: datetime) -> datetime:
         """Converte datetime para UTC"""

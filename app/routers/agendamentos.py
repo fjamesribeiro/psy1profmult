@@ -44,5 +44,5 @@ def delete_agendamento(agendamento_id: int, db: Session = Depends(get_db)):
     AgendamentoService.delete_agendamento(db, agendamento_id)
 
 @router.get("/horario-livre/{data}")
-def is_horario_livre(data: str, db: Session = Depends(get_db)):
-    return AgendamentoService.is_horario_livre(db, data)
+def is_horario_livre(data: str, db: Session = Depends(get_db)) -> dict:
+    return {"livre": AgendamentoService.is_horario_livre(db, data)}

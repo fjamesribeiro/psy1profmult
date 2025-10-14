@@ -326,7 +326,7 @@ class AgendamentoService:
             # 4. Valida se não existe um agendamento conflitante no banco de dados
             # Um conflito existe se um agendamento começa antes do nosso fim E termina depois do nosso início.
             conflito = db.query(models.Agendamento).filter(
-                models.Agendamento.status != 'cancelled',
+                models.Agendamento.status != 'canceled',
                 models.Agendamento.data_inicio < horario_fim,
                 models.Agendamento.data_fim > horario_inicio
             ).first()

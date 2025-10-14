@@ -11,12 +11,12 @@ class AgendamentoService:
     
     # Configurações do sistema
     HORARIOS_PROFISSIONAL = {
-        1: [("08:00", "12:00"), ("13:00", "18:00")],  # segunda
-        2: [("08:00", "12:00"), ("13:00", "18:00")],  # terça
-        3: [("08:00", "12:00"), ("13:00", "18:00")],  # quarta
-        4: [("08:00", "12:00"), ("13:00", "18:00")],  # quinta
-        5: [("08:00", "12:00"), ("13:00", "17:00")],  # sexta
-        6: [("08:00", "12:00")],                      # sábado
+        1: [("09:00", "12:00"), ("13:00", "18:00")],  # segunda
+        2: [("09:00", "12:00"), ("13:00", "18:00")],  # terça
+        3: [("09:00", "12:00"), ("13:00", "18:00")],  # quarta
+        4: [("09:00", "12:00"), ("13:00", "18:00")],  # quinta
+        5: [("09:00", "12:00"), ("13:00", "18:00")],  # sexta
+        6: [("09:00", "13:00")],                      # sábado
         7: []                                         # domingo
     }
     
@@ -234,7 +234,8 @@ class AgendamentoService:
             
             agendamentos_db = db.query(models.Agendamento).filter(
                 models.Agendamento.data_inicio >= inicio_dia,
-                models.Agendamento.data_inicio <= fim_dia
+                models.Agendamento.data_inicio <= fim_dia,
+                models.Agendamento.status != 'canceled'
             ).all()
             
             # Converte agendamentos para formato de slots ocupados

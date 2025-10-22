@@ -46,3 +46,7 @@ def delete_agendamento(agendamento_id: int, db: Session = Depends(get_db)):
 @router.get("/horario-livre/{data}")
 def is_horario_livre(data: str, db: Session = Depends(get_db)) -> dict:
     return { "livre": AgendamentoService.is_horario_livre(db, data) }
+
+@router.get("/proximo-estado/{estado_atual}")
+def get_proximo_estado(estado_atual: str) -> dict:
+    return {"proximo_estado": AgendamentoService.proximo_estado(estado_atual)}

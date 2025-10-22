@@ -341,3 +341,45 @@ class AgendamentoService:
             raise HTTPException(status_code=400, detail="Data deve estar no formato YYYY-MM-DD")
         except Exception:
             raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
+
+    @staticmethod
+    def proximo_estado(estado_atual: str):
+        """
+        Retorna o próximo estado na sequência do fluxo de agendamento.
+
+        Esta função implementa uma máquina de estados simples onde cada estado
+        conhece seu sucessor. Todos os fluxos começam em INICIO e retornam a
+        INICIO quando completam, permitindo que o usuário inicie uma nova operação.
+
+        Args:
+            estado_atual (str): O estado atual do cliente no fluxo
+
+        Returns:
+            str: O próximo estado na sequência, ou None se o estado for inválido
+        """
+        # Dicionário que mapeia cada estado para seu próximo estado
+        # A chave é o estado atual, o valor é para onde ele deve ir
+        transicoes = {
+            # Fluxo de Agendamento: INICIO → DATA → CONFIRMAÇÃO → volta para INICIO
+            'AGENDAR_INICIO': 'AGENDAR_AGUARDANDO_DATA',
+            'AGENDAR_AGUARDANDO_DATA': 'AGENDAR_AGUARDANDO_CONFIRMACAO',
+            'AGENDAR_AGUARDANDO_CONFIRMACAO': 'INICIO',
+
+            # Fluxo de Reagendamento: INICIO → LISTAR → ESCOLHER → DATA → CONFIRMAÇÃO → volta para INICIO
+            'REAGENDAR_LISTANDO': 'REAGENDAR_AGUARDANDO_ESCOLHA',
+            'REAGENDAR_AGUARDANDO_ESCOLHA': 'REAGENDAR_AGUARDANDO_DATA',
+            'REAGENDAR_AGUARDANDO_DATA': 'REAGENDAR_AGUARDANDO_CONFIRMACAO',
+            'REAGENDAR_AGUARDANDO_CONFIRMACAO': 'INICIO',
+
+            # Fluxo de Cancelamento: INICIO → LISTAR → ESCOLHER → CONFIRMAÇÃO → volta para INICIO
+            'CANCELAR_LISTANDO': 'CANCELAR_AGUARDANDO_ESCOLHA',
+            'CANCELAR_AGUARDANDO_ESCOLHA': 'CANCELAR_AGUARDANDO_CONFIRMACAO',
+            'CANCELAR_AGUARDANDO_CONFIRMACAO': 'INICIO',
+        }
+
+        # Remove espaços em branco e converte para maiúsculas para evitar erros de digitação
+        var_estado_atual = estado_atual.strip().upper()
+
+        # Busca o próximo estado no dicionário
+        # Se o estado não existir, retorna None
+        return transicoes.get(var_estado_atual)

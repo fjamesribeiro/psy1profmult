@@ -24,6 +24,7 @@ app.include_router(auth.router, prefix="/auth", tags=["Autenticação"])
 app.include_router(clientes.router, prefix="/clientes", tags=["clientes"])
 app.include_router(agendamentos.router, prefix="/agendamentos", tags=["agendamentos"])
 
+#main
 @app.get("/")
 def read_root():
     return {"message": "API funcionando", "docs": "/docs"}

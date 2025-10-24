@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional
 
 class ClienteBase(BaseModel):
     nome: str
@@ -51,3 +51,19 @@ class Agendamento(AgendamentoBase):
 
     class Config:
         from_attributes = True
+
+class ProfissionalLogin(BaseModel):
+    id: int
+    password: str
+
+class Token(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+
+class TokenRefresh(BaseModel):
+    refresh_token: str
+
+class AccessToken(BaseModel):
+    access_token: str
+    token_type: str = "bearer"

@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import clientes, agendamentos
+from app.routers import clientes, agendamentos, auth
 from app import models
 from .database import engine
 
@@ -20,6 +20,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth.router, prefix="/auth", tags=["Autenticação"])
 app.include_router(clientes.router, prefix="/clientes", tags=["clientes"])
 app.include_router(agendamentos.router, prefix="/agendamentos", tags=["agendamentos"])
 

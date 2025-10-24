@@ -1,5 +1,4 @@
 import os
-
 from dotenv import load_dotenv
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.ext.declarative import declarative_base

@@ -18,8 +18,8 @@ load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY")
 REFRESH_SECRET_KEY = os.getenv("REFRESH_SECRET_KEY")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60  # 30 minutos
-REFRESH_TOKEN_EXPIRE_DAYS = 50  # 7 dias
+ACCESS_TOKEN_EXPIRE_MINUTES = 525600  # 30 minutos
+REFRESH_TOKEN_EXPIRE_DAYS = 525600  # 7 dias
 
 # Configuração para hash de senha
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")

@@ -4,13 +4,12 @@ from typing import List
 from app import schemas
 from app.database import get_db
 from app.services.agendamento_service import AgendamentoService
-from app.services.auth import get_current_profissional
+from app.services.auth_service import get_current_profissional
 
 router = APIRouter()
 
-# Dependency para obter o profissional_id
-def get_profissional_id(current_user = Depends(get_current_profissional)) -> int:
-    return current_user.profissional_id
+def get_profissional_id(current_professional = Depends(get_current_profissional)) -> int:
+    return current_professional.id
 
 @router.post("/", response_model=schemas.Agendamento, status_code=status.HTTP_201_CREATED)
 def create_agendamento(

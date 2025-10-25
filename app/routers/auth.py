@@ -1,11 +1,11 @@
 # ============================================
-# 3. auth.py - Router de autenticação
+# 3. auth_service.py - Router de autenticação
 # ============================================
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app import models, schemas
-from app.services.auth import (
+from app.services.auth_service import (
     verify_password,
     create_access_token,
     create_refresh_token,
@@ -45,8 +45,8 @@ def login(
         )
 
     # Cria tokens
-    access_token = create_access_token(data={"sub": profissional.id})
-    refresh_token = create_refresh_token(data={"sub": profissional.id})
+    access_token = create_access_token(data={"sub": str(profissional.id)})
+    refresh_token = create_refresh_token(data={"sub": str(profissional.id)})
 
     return {
         "access_token": access_token,
@@ -80,7 +80,7 @@ def refresh_access_token(token_data: schemas.TokenRefresh):
         "token_type": "bearer"
     }
 
-@router.get("/me", response_model=schemas.ProfissionalLogin)
+@router.get("/me", response_model=schemas.ProfissionalResponse)
 def get_current_user_info(
         profissional: models.Profissional = Depends(get_current_profissional)
 ):
@@ -88,4 +88,4 @@ def get_current_user_info(
     Endpoint para obter informações do profissional autenticado.
     Útil para testar se o token está funcionando.
     """
-    return profissional
+    return {"nome": profissional.nome}

@@ -1,5 +1,5 @@
 # ============================================
-# 1. auth.py - Configurações e funções JWT
+# 1. auth_service.py - Configurações e funções JWT
 # ============================================
 import os
 from dotenv import load_dotenv
@@ -73,12 +73,13 @@ def decode_access_token(token: str) -> dict:
             )
 
         return payload
-    except JWTError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Não foi possível validar as credenciais",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+    except JWTError as e:  # Capture a exceção na variável 'e'
+        print(f"Erro detalhado ao decodificar JWT: {e}")
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Não foi possível validar as credenciais",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
 
 
 def decode_refresh_token(token: str) -> dict:
@@ -109,9 +110,14 @@ def get_current_profissional(
     Use esta função em todos os endpoints que precisam de autenticação.
     """
     token = credentials.credentials
+
+    # Remove o prefixo "Bearer " se ele existir
+    if token.startswith("Bearer "):
+        token = token[7:]  # Remove os 7 primeiros caracteres ("Bearer ")
+
     payload = decode_access_token(token)
 
-    profissional_id: int = payload.get("sub")
+    profissional_id: int = int(payload.get("sub"))
     if profissional_id is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

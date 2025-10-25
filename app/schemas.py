@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from datetime import datetime
 from typing import Optional
 
@@ -55,6 +55,14 @@ class Agendamento(AgendamentoBase):
 class ProfissionalLogin(BaseModel):
     id: int
     password: str
+
+class ProfissionalResponse(BaseModel):
+    id: int
+    nome: str
+    ativo: bool
+
+    class Config:
+        orm_mode = True
 
 class Token(BaseModel):
     access_token: str

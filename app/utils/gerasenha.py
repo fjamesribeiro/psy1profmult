@@ -1,4 +1,4 @@
-from app.services.auth import get_password_hash
+from app.services.auth_service import get_password_hash
 
 # Gere o hash da senha
 senha_hash = get_password_hash("psyconexa")

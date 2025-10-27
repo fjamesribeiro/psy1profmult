@@ -160,11 +160,11 @@ class AgendamentoService:
     def cancel_agendamento(db: Session, profissional_id: int, agendamento_id: int) -> models.Agendamento:
         db_agendamento = AgendamentoService.get_agendamento_by_id(db, profissional_id, agendamento_id)
 
-        if db_agendamento.status == "cancelled":
+        if db_agendamento.status == "canceled":
             raise HTTPException(status_code=400, detail="Agendamento já cancelado")
 
-        db_agendamento.status = "cancelled"
-        db_agendamento.cancelled_at = datetime.utcnow()
+        db_agendamento.status = "canceled"
+        db_agendamento.canceled_at = datetime.utcnow()
         db.commit()
         db.refresh(db_agendamento)
         return db_agendamento
@@ -284,7 +284,7 @@ class AgendamentoService:
                 models.Agendamento.profissional_id == profissional_id,
                 models.Agendamento.data_inicio >= inicio_dia,
                 models.Agendamento.data_inicio <= fim_dia,
-                models.Agendamento.status != 'cancelled'
+                models.Agendamento.status != 'canceled'
             ).all()
 
             # Converte agendamentos para formato de slots ocupados
@@ -367,7 +367,7 @@ class AgendamentoService:
             # Valida se não existe agendamento conflitante
             conflito = db.query(models.Agendamento).filter(
                 models.Agendamento.profissional_id == profissional_id,
-                models.Agendamento.status != 'cancelled',
+                models.Agendamento.status != 'canceled',
                 models.Agendamento.data_inicio < horario_fim,
                 models.Agendamento.data_fim > horario_inicio
             ).first()
@@ -383,19 +383,33 @@ class AgendamentoService:
             raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
 
     @staticmethod
-    def proximo_estado(estado_atual: str):
+    def proximo_estado(db: Session, estado_atual: str,  profissional_id: int) -> str:
         """Retorna o próximo estado na sequência do fluxo de agendamento"""
+        profissional = db.query(models.Profissional).filter(
+            models.Profissional.id == profissional_id
+        ).first()
+
+        atende_online = profissional.atende_online
+
         transicoes = {
             # Fluxo de Agendamento
             'AGENDAR_INICIO': 'AGENDAR_AGUARDANDO_DATA',
-            'AGENDAR_AGUARDANDO_DATA': 'AGENDAR_AGUARDANDO_CONFIRMACAO',
+            'AGENDAR_AGUARDANDO_DATA': {
+                True : 'AGENDAR_AGUARDANDO_CONFIRMACAO_ONLINE',
+                False : 'AGENDAR_AGUARDANDO_CONFIRMACAO'
+            },
             'AGENDAR_AGUARDANDO_CONFIRMACAO': 'INICIO',
+            'AGENDAR_AGUARDANDO_CONFIRMACAO_ONLINE': 'INICIO',
 
             # Fluxo de Reagendamento
             'REAGENDAR_LISTANDO': 'REAGENDAR_AGUARDANDO_ESCOLHA',
             'REAGENDAR_AGUARDANDO_ESCOLHA': 'REAGENDAR_AGUARDANDO_DATA',
-            'REAGENDAR_AGUARDANDO_DATA': 'REAGENDAR_AGUARDANDO_CONFIRMACAO',
+            'REAGENDAR_AGUARDANDO_DATA': {
+                True: 'REAGENDAR_AGUARDANDO_CONFIRMACAO_ONLINE',
+                False: 'REAGENDAR_AGUARDANDO_CONFIRMACAO'
+            },
             'REAGENDAR_AGUARDANDO_CONFIRMACAO': 'INICIO',
+            'REAGENDAR_AGUARDANDO_CONFIRMACAO_ONLINE': 'INICIO',
 
             # Fluxo de Cancelamento
             'CANCELAR_LISTANDO': 'CANCELAR_AGUARDANDO_ESCOLHA',
@@ -404,4 +418,11 @@ class AgendamentoService:
         }
 
         var_estado_atual = estado_atual.strip().upper()
-        return transicoes.get(var_estado_atual)
+        transicao = transicoes.get(var_estado_atual)
+
+        # Se for um dicionário com condição, avalia e retorna o estado apropriado
+        if isinstance(transicao, dict):
+            return transicao[atende_online]
+
+        # Se for um estado simples, retorna direto
+        return transicao

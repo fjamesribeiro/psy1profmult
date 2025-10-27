@@ -104,6 +104,10 @@ def is_horario_livre(
     return {"livre": AgendamentoService.is_horario_livre(db, profissional_id, data)}
 
 @router.get("/proximo-estado/{estado_atual}")
-def get_proximo_estado(estado_atual: str) -> dict:
+def get_proximo_estado(
+        estado_atual: str,
+        db: Session = Depends(get_db),
+        profissional_id: int = Depends(get_profissional_id)
+) -> dict:
     """Retorna o próximo estado no fluxo de agendamento"""
-    return {"proximo_estado": AgendamentoService.proximo_estado(estado_atual)}
+    return {"proximo_estado": AgendamentoService.proximo_estado(db, estado_atual, profissional_id)}

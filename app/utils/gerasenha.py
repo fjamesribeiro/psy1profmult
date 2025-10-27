@@ -1,7 +1,7 @@
 from app.services.auth_service import get_password_hash
 
 # Gere o hash da senha
-senha_hash = get_password_hash("psyconexa")
+senha_hash = get_password_hash("psyconexa2")
 print(senha_hash)
 
 # Atualize no banco manualmente ou via script:

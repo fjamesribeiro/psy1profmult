@@ -27,6 +27,8 @@ class Profissional(Base):
     prompt_sistema = Column(Text)
     atende_online = Column(Boolean, nullable=False, default=False)
     senha_hash = Column(String(255), nullable=False)
+    instancia_evo = Column(String(255), nullable=False)
+    sexo = Column(String(1))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -34,19 +36,6 @@ class Profissional(Base):
     clientes = relationship("Cliente", back_populates="profissional")
     agendamentos = relationship("Agendamento", back_populates="profissional")
     estados_conversa = relationship("EstadoConversa", back_populates="profissional")
-
-
-class TipoServicoConfig(Base):
-    __tablename__ = "tipo_servico_config"
-
-    id = Column(BigInteger, primary_key=True, index=True, autoincrement=True)
-    tipo = Column(String(50), nullable=False, unique=True)
-    nome_display = Column(String(100), nullable=False)
-    campos_extras = Column(JSON, default={})
-    validacoes = Column(JSON, default={})
-    prompt_padrao = Column(Text)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-
 
 class Cliente(Base):
     __tablename__ = "clientes"
@@ -94,6 +83,9 @@ class Agendamento(Base):
     source = Column(String, default="whatsapp")
     tipo_atendimento = Column(String(20), default="presencial", nullable=False)
     evento_id = Column(String, unique=True, nullable=False)
+    lembrete1dia = Column(Boolean, default=False)
+    lembrete2horas = Column(Boolean, default=False)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     # Relationships
